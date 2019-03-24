@@ -3,13 +3,42 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/handler"
+
+	"app/mutations"
+	"app/queries"
 )
 
+var schema, _ = graphql.NewSchema(graphql.SchemaConfig{
+	Query:     queries.RootQuery,
+	Mutatioon: mutations.RootMutation,
+})
+
 func main() {
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Hello Mars!")
-	}))
+	h := handler.New(&handler.Config{
+		Schema: &schema,
+		Pretty: true,
+	})
+
+	http.Handle("/graphql", disableCors(h))
 
 	log.Println("Now server is running on port 3000")
 	http.ListenAndServe(":3000", nil)
+}
+
+func disableCors(h http.Handler) http.Hander {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Headers", "Accept, Authorization, Content-Type, Content-Length, Accept-Encoding")
+
+		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.WriteHeader(http.StatusOK)
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }
